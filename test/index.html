@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NavKeysController TEST PAGE</title>
+    <script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
+    <script src="/bundle.js"></script>
+</head>
+
+<body>
+    <p>NavKeysController tests</p>
+    <h1 id="debug-main"></h1>
+    <pre id="debug-list" style="border: 2px solid #DDDDDD; min-height: 500px; overflow: auto;">
+
+    </pre>
+    <button onclick="history2.enableForwardButton()">Enable forward</button>
+    <button onclick="history2.disableForwardButton()">Disable forward</button>
+    <!-- Polyfill for old browsers -->
+    <script>
+        let i = 0
+        function log(data) {
+            i++
+            const d = (new Date()).toTimeString().split(" ")[0]
+            try {
+                document.getElementById('debug-list').innerText += i + " [" + d + "] " + JSON.stringify(data) + "\n"
+            } catch (error) {
+                // PROBABLY IE
+                document.getElementById('debug-list').innerText += i + " [" + d + "] " + JSON.stringify(data + "") + "\n"
+
+            }
+            console.log(data)
+        }
+
+        function title(data) {
+            document.getElementById('debug-main').innerText = data
+        }
+
+        function delayed(ms, fn) {
+            setTimeout(fn, ms)
+        }
+    </script>
+
+
+    <script>
+        var history2 = new HistoryPro(window.history)
+
+        log(history2)
+
+        history2.listen(function (e) {
+            log(e)
+        })
+
+        delayed(200, function () {
+            history2.url = "/a"
+        })
+
+        delayed(300, function () {
+            history.back()
+        })
+
+        delayed(400, function () {
+
+        })
+    </script>
+</body>
+
+</html>

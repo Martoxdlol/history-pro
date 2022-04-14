@@ -1,0 +1,37 @@
+{
+  "name": "history-pro",
+  "version": "0.0.1",
+  "description": "Advanced version of browser history api. Compatible with react-router.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": "https://github.com/Martoxdlol/history-pro",
+  "scripts": {
+    "build_web": "npx webpack --env production",
+    "build": "tsc",
+    "dev": "npx webpack serve",
+    "prepublish": "npm run build"
+  },
+  "browserslist": [
+    "last 1 version",
+    "> 1%",
+    "not dead"
+  ],
+  "keywords": [
+    "history",
+    "navigation",
+    "browser",
+    "react"
+  ],
+  "author": "Tomás Cichero <martoxdlol@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "ts-loader": "^9.2.8",
+    "typescript": "^4.6.3",
+    "webpack": "^5.72.0",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.8.1"
+  },
+  "dependencies": {
+    "nav-keys": "^1.1.1"
+  }
+}

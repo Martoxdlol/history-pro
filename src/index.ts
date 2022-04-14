@@ -57,13 +57,43 @@ export enum Action {
     hashchange = 'hashchange',
 }
 
-export class NavLocation extends URL {
+export class NavLocation {
     state: any
     key: string
+    readonly url: URL
     constructor(url: string | URL, state?: any, key?: string) {
-        super(url.toString())
+        this.url = new URL(url)
         this.state = state ?? null
         this.key = key ?? createKey()
+    }
+
+    get hash() {
+        return this.url.href
+    }
+    get host() {
+        return this.url.host
+    }
+    get hostname() {
+        return this.url.hostname
+    }
+    get href() {
+        return this.url.href
+    }
+    get origin() {
+        return this.url.origin
+    }
+    get pathname() {
+        return this.url.pathname
+    }
+    get port() {
+        return this.url.port
+    }
+    get protocol() {
+        return this.url.protocol
+    }
+
+    toString() {
+        return this.url.toString()
     }
 }
 
@@ -98,7 +128,7 @@ export default class HistoryPro {
     constructor(options?: Options) {
         this.options = { ...DEFAULT_OPTIONS, ...options }
         this.navKeysController = options.navKeysController ?? new NavKeysController(window.history, {})
-        this.navKeysController.listen(this.handleListen)
+        this.navKeysController.listen(this.handleListen.bind(this))
         this.listeners = new Set()
         this.blockers = new Set()
         this.exitBlockersCount = 0
@@ -120,9 +150,6 @@ export default class HistoryPro {
             newIndex = this.list.length - 1
             this.navKeysController.disableForwardButton()
             return
-        }
-        if (newIndex < this.list.length - 1) {
-            this.navKeysController.enableForwardButton()
         }
         const isExit = newIndex == -1
         const isHashchange = event.action === 'hashchange'
@@ -167,8 +194,10 @@ export default class HistoryPro {
 
         if (!cancelled) {
             // Establish new index
-            this.index = newIndex
-            this.navKeysController.url = this.url
+            if (!e.isExit) this.index = newIndex
+            if (this.index == this.length - 1) this.navKeysController.disableForwardButton()
+            if (this.index < this.length - 1 && !this.navKeysController.isForwardButtonEnabled) this.navKeysController.enableForwardButton()
+            setTimeout(() => { this.navKeysController.url = this.url }, 100)
             if (e.isExit) this.navKeysController.exit()
         }
     }
@@ -232,7 +261,7 @@ export default class HistoryPro {
     push(url: string | URL, state?: any, position?: number) {
         if (position === undefined || position === null) position = this.index + 1
         // Next new location
-        const location: NavLocation = { ...new URL(url.toString()), state: state ?? null, key: createKey() }
+        const location: NavLocation = new NavLocation(new URL(url, this.url), state, createKey())
         let n = 0
         let newIndex = this.index
         if (position - 1 == this.index) {
@@ -271,7 +300,7 @@ export default class HistoryPro {
     replace(url: string | URL, state?: any, position?: number) {
         if (position === undefined || position === null) position = this.index
         // Next new location
-        const location: NavLocation = { ...new URL(url.toString()), state: state ?? null, key: createKey() }
+        const location: NavLocation = new NavLocation(new URL(url, this.url), state, createKey())
 
         const e: NavEvent = {
             n: 0,
@@ -401,7 +430,7 @@ export default class HistoryPro {
     }
 
     /* Navigation history length */
-    get length(): Number {
+    get length(): number {
         return this.list.length
     }
 
@@ -414,7 +443,7 @@ export default class HistoryPro {
     }
 
     get url() {
-        return new URL(this.location.toString())
+        return this.location.url
     }
 
     /* Get a navigation item at list position*/

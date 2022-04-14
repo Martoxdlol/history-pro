@@ -36,6 +36,11 @@ export type Blocker = {
     cancel: Function
 }
 
+export type Listener = {
+    listener: Function
+    cancel: Function
+}
+
 export const DEFAULT_OPTIONS: Options = {
     listenPushPopAndReplaceEvents: true,
     listenManuallyCalledBackOrForward: true,
@@ -64,7 +69,8 @@ export class NavLocation extends URL {
 
 export class NavEvent {
     n: number
-    location: NavLocation
+    prevLocation: NavLocation
+    nextLocation: NavLocation
     action: Action
     isBack: boolean
     isForward: boolean
@@ -81,8 +87,8 @@ export class NavEvent {
 
 export default class HistoryPro {
     private navKeysController: NavKeysController
-    private list: [NavLocation]
-    private listeners: Set<Function>
+    private list: NavLocation[]
+    private listeners: Set<Listener>
     private blockers: Set<Blocker>
     private exitBlockersCount: number
     private pushReplaceAndPopBlockersCount: number
@@ -136,7 +142,8 @@ export default class HistoryPro {
             isReplace: false,
             isPush: false,
             isExit,
-            location,
+            prevLocation: this.location,
+            nextLocation: location,
             isHashchange,
             action,
             wasManuallyCalledAction: false,
@@ -155,8 +162,6 @@ export default class HistoryPro {
             this.push(this.navKeysController.url)
             return
         }
-
-        if (!this.options.listenPushPopAndReplaceEvents && (e.isPop || e.isReplace || e.isPush)) return
 
         const cancelled = this.emitEvent(e)
 
@@ -194,18 +199,13 @@ export default class HistoryPro {
             isHashchange: false,
             isPush: false,
             isReplace: false,
-            location: this.list[newIndex] ?? null,
+            prevLocation: this.location,
+            nextLocation: this.list[newIndex] ?? null,
             wasManuallyCalledAction: true,
         }
 
-
-        const blocked = this.emitBlocker(e)
-
-        if (blocked) return
-
-        const cancelled = this.emitEvent(e)
-
-        if (cancelled) return
+        const shouldDoAction = this.emitEventAndBlockers(e)
+        if (!shouldDoAction) return
 
         if (n < 0) {
             this.navKeysController.exit()
@@ -218,35 +218,145 @@ export default class HistoryPro {
     /*Goes forward on history list.
     Doesn't modify history's list.*/
     forward() {
-
+        this.go(1)
     }
 
     /*Goes backward on history list.
     Doesn't modify history's list.*/
     back() {
-
+        this.go(-1)
     }
 
     /*Adds a navigation next to the actual position.
     Removes all forward navigations items.*/
     push(url: string | URL, state?: any, position?: number) {
+        if (position === undefined || position === null) position = this.index + 1
+        // Next new location
+        const location: NavLocation = { ...new URL(url.toString()), state: state ?? null, key: createKey() }
+        let n = 0
+        let newIndex = this.index
+        if (position - 1 == this.index) {
+            // Should go to
+            n = 1
+            newIndex++
+        }
+        if (position - 1 < this.index) {
+            newIndex++
+        }
+        const e: NavEvent = {
+            n: 0,
+            action: Action.push,
+            isBack: false,
+            isExit: false,
+            isForward: false,
+            isHashchange: false,
+            isPop: false,
+            isPush: true,
+            isReplace: false,
+            prevLocation: this.list[position],
+            nextLocation: location,
+            wasManuallyCalledAction: true,
+        }
 
+        const shouldDoAction = this.emitEventAndBlockers(e)
+        if (!shouldDoAction) return
+
+        this.index = newIndex
+        this.list = [...this.list.slice(0, position), location, ...this.list.slice(position)]
+        this.navKeysController.url = this.url
     }
 
 
     /*Replaces current navigation item*/
     replace(url: string | URL, state?: any, position?: number) {
+        if (position === undefined || position === null) position = this.index
+        // Next new location
+        const location: NavLocation = { ...new URL(url.toString()), state: state ?? null, key: createKey() }
 
+        const e: NavEvent = {
+            n: 0,
+            action: Action.replace,
+            isBack: false,
+            isExit: false,
+            isForward: false,
+            isHashchange: false,
+            isPop: false,
+            isPush: false,
+            isReplace: true,
+            prevLocation: this.list[position],
+            nextLocation: location,
+            wasManuallyCalledAction: true,
+        }
+
+        const shouldDoAction = this.emitEventAndBlockers(e)
+        if (!shouldDoAction) return
+
+        this.list[position] = location
+        this.navKeysController.url = this.url
     }
 
     /*Removes current position and goes back*/
     pop(position?: number) {
+        if (position === undefined || position === null) {
+            position = this.index
+        }
 
+        const isExit = this.list.length == 1
+
+        let newIndex = this.index
+        let nextLocationIndex = newIndex
+
+
+        let n = 0
+
+        if (position <= this.index) {
+            if (position == 0) {
+                n = 1
+                nextLocationIndex = 1
+            } else {
+                n = -1
+                newIndex--
+                nextLocationIndex--
+            }
+        }
+
+        const isForward = n > 0
+        const isBack = n < 0
+
+        const e: NavEvent = {
+            n,
+            action: Action.pop,
+            isBack,
+            isExit,
+            isForward,
+            isHashchange: false,
+            isPop: true,
+            isPush: false,
+            isReplace: false,
+            prevLocation: this.location,
+            nextLocation: this.list[nextLocationIndex],
+            wasManuallyCalledAction: true,
+        }
+
+        const shouldDoAction = this.emitEventAndBlockers(e)
+        if (!shouldDoAction) return
+
+        // Do the action
+        this.list.splice(position, 1)
+        this.navKeysController.url = this.url
     }
 
     /*Listen for all the events*/
-    listen(callback: Function) {
+    listen(listener: Function) {
+        const b: Listener = {
+            listener,
+            cancel: () => {
+                this.listeners.delete(b)
+            }
+        }
 
+        this.listeners.add(b)
+        return b.cancel
     }
 
     /*Block back and forward actions. Doesn't block push, pop or replace by default*/
@@ -312,6 +422,17 @@ export default class HistoryPro {
         return this.list[position] || null
     }
 
+    private emitEventAndBlockers(e: NavEvent): boolean {
+        // Emit blockers
+        const blocked = this.emitBlocker(e)
+        if (blocked) return false;
+
+        // Emit event
+        const cancelled = this.emitEvent(e)
+        if (cancelled) return false;
+
+        return true
+    }
     /* returns true if blocked */
     private emitBlocker(e: NavEvent): boolean {
         let blocked = false
@@ -349,6 +470,8 @@ export default class HistoryPro {
     }
 
     private emitEvent(e: NavEvent): boolean {
+        if (!this.options.listenPushPopAndReplaceEvents && (e.isPop || e.isReplace || e.isPush) && e.wasManuallyCalledAction) return
+
         let cancelled = false
         let stoppedPropagation = false
         // Launch event
@@ -359,7 +482,7 @@ export default class HistoryPro {
         if (this.options.callEventListenersFromLastToFirst) list.reverse()
 
         for (const listener of list) {
-            listener(e)
+            listener.listener(e)
             if (stoppedPropagation) break
         }
 

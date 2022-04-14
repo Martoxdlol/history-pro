@@ -10,7 +10,7 @@ export default function createHistory(historyPro?: HistoryPro) {
     let listeners = new Set<Function>()
 
     historyPro.listen((e: NavEvent) => {
-        location = e.location
+        location = e.nextLocation
         if (e.action === Action.push) {
             action = 'PUSH'
         } else if (e.action === Action.replace) {

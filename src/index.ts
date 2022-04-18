@@ -130,7 +130,7 @@ export class NavEvent {
     /* Prevent triggering other event listeners */
     stopPropagation?: Function
     /* It can be used to ignore block. Ej: setContinue(true)*/
-    setContinue?: Function 
+    setContinue?: Function
 }
 
 export default class HistoryPro {
@@ -501,6 +501,10 @@ export default class HistoryPro {
         return this.list.indexOf(navLocation)
     }
 
+    createHref(to: string | {}) {
+        return typeof to === "string" ? to : createPath(to);
+    }
+
     private _setForwardButtonTimeout: NodeJS.Timeout = null
     private setForwardButtonAndUrl() {
         /*
@@ -589,6 +593,14 @@ export default class HistoryPro {
 
         return cancelled
     }
+}
+
+function createPath({ pathname = "/", search = "", hash = "", }) {
+    if (search && search !== "?")
+        pathname += search.charAt(0) === "?" ? search : "?" + search;
+    if (hash && hash !== "#")
+        pathname += hash.charAt(0) === "#" ? hash : "#" + hash;
+    return pathname;
 }
 
 function createKey() {

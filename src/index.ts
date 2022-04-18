@@ -1,4 +1,4 @@
-import NavKeysController, { NavigationEvent } from "nav-keys";
+import NavKeysController, { NavKeyEvent } from "nav-keys";
 
 export type Options = {
     /* If for some reason you are using your own instance or version of 'nav-keys' package (search it on npm) */
@@ -127,13 +127,13 @@ export default class HistoryPro {
 
     constructor(options?: Options) {
         this.options = { ...DEFAULT_OPTIONS, ...options }
-        this.navKeysController = options.navKeysController ?? new NavKeysController(window.history, {})
+        this.navKeysController = options.navKeysController ?? new NavKeysController(window.history)
         this.navKeysController.listen(this.handleListen.bind(this))
         this.listeners = new Set()
         this.blockers = new Set()
         this.exitBlockersCount = 0
         this.pushReplaceAndPopBlockersCount = 0
-
+        console.log(this.navKeysController)
         this.list = [
             new NavLocation(this.navKeysController.url, options.initialState, options.initialKey)
         ]
@@ -141,7 +141,7 @@ export default class HistoryPro {
     }
 
     // Handles back, forward and hashchange events
-    private handleListen(event: NavigationEvent) {
+    private handleListen(event: NavKeyEvent) {
         // First, create event
         let newIndex = this.index
         if (event.action === 'back') newIndex--
@@ -197,7 +197,8 @@ export default class HistoryPro {
             if (!e.isExit) this.index = newIndex
             if (this.index == this.length - 1) this.navKeysController.disableForwardButton()
             if (this.index < this.length - 1 && !this.navKeysController.isForwardButtonEnabled) this.navKeysController.enableForwardButton()
-            setTimeout(() => { this.navKeysController.url = this.url }, 100)
+            // setTimeout(() => { this.setForwardButtonAndUrl() }, 100)
+            this.setForwardButtonAndUrl()
             if (e.isExit) this.navKeysController.exit()
         }
     }
@@ -208,12 +209,16 @@ export default class HistoryPro {
         // Verifications
         if (n === 0) return
         let newIndex = this.index + n
-        if (n > newIndex - 1) n = newIndex - 1
+        if (newIndex >= this.length) {
+            newIndex = this.length - 1
+            n = newIndex - this.index
+        }
 
-        const isExit = newIndex >= 0
+        const isExit = newIndex < 0
         const isBack = n < 0 && !isExit
         const isForward = !isBack && isExit
-        let action = Action.exit
+        let action = null
+        if (isExit) action = Action.exit
         if (isBack) action = Action.back
         if (isForward) action = Action.forward
 
@@ -236,12 +241,24 @@ export default class HistoryPro {
         const shouldDoAction = this.emitEventAndBlockers(e)
         if (!shouldDoAction) return
 
-        if (n < 0) {
+        if (newIndex < 0) {
             this.navKeysController.exit()
             return
         }
         this.index = newIndex
-        this.navKeysController.url = this.url
+        this.setForwardButtonAndUrl()
+    }
+
+    goTo(position_or_navLocation: number | NavLocation) {
+        let position: number = null
+        if (position_or_navLocation instanceof NavLocation) {
+            position = this.indexOf(position_or_navLocation)
+            if (position === -1) return
+        } else {
+            position = position_or_navLocation
+        }
+        const n = position - this.index
+        this.go(n)
     }
 
     /*Goes forward on history list.
@@ -292,7 +309,7 @@ export default class HistoryPro {
 
         this.index = newIndex
         this.list = [...this.list.slice(0, position), location, ...this.list.slice(position)]
-        this.navKeysController.url = this.url
+        this.setForwardButtonAndUrl()
     }
 
 
@@ -321,7 +338,7 @@ export default class HistoryPro {
         if (!shouldDoAction) return
 
         this.list[position] = location
-        this.navKeysController.url = this.url
+        this.setForwardButtonAndUrl()
     }
 
     /*Removes current position and goes back*/
@@ -330,23 +347,24 @@ export default class HistoryPro {
             position = this.index
         }
 
+        if (position < 0 || position > this.length - 1 || !Number.isInteger(position)) {
+            return
+        }
+
         const isExit = this.list.length == 1
 
         let newIndex = this.index
-        let nextLocationIndex = newIndex
+        let nextLocationIndexBeforeChange = this.index
 
 
         let n = 0
 
-        if (position <= this.index) {
-            if (position == 0) {
-                n = 1
-                nextLocationIndex = 1
-            } else {
-                n = -1
-                newIndex--
-                nextLocationIndex--
-            }
+        if (position == 0) {
+            if (this.index > 0) newIndex--
+            if (this.index == 0) n = 1
+        } else {
+            if (position < this.index) newIndex--
+            if (position == this.index) n = -1
         }
 
         const isForward = n > 0
@@ -363,7 +381,7 @@ export default class HistoryPro {
             isPush: false,
             isReplace: false,
             prevLocation: this.location,
-            nextLocation: this.list[nextLocationIndex],
+            nextLocation: this.list[nextLocationIndexBeforeChange],
             wasManuallyCalledAction: true,
         }
 
@@ -371,8 +389,14 @@ export default class HistoryPro {
         if (!shouldDoAction) return
 
         // Do the action
+        if (e.isExit) {
+            this.navKeysController.exit()
+            return
+        }
+
+        this.index = newIndex
         this.list.splice(position, 1)
-        this.navKeysController.url = this.url
+        this.setForwardButtonAndUrl()
     }
 
     /*Listen for all the events*/
@@ -443,12 +467,42 @@ export default class HistoryPro {
     }
 
     get url() {
-        return this.location.url
+        return this.location.toString()
+    }
+
+    get state() {
+        return this.location.state
     }
 
     /* Get a navigation item at list position*/
     get(position: number): NavLocation {
         return this.list[position] || null
+    }
+
+    indexOf(navLocation: NavLocation) {
+        return this.list.indexOf(navLocation)
+    }
+
+    private _setForwardButtonTimeout: NodeJS.Timeout = null
+    private setForwardButtonAndUrl() {
+        /*
+        I'm using timer because I know that calling that functions over nav-keys modules can generate bugs
+        So giving 50 ms space is nice
+        */
+        this.navKeysController.url = this.url
+        clearTimeout(this._setForwardButtonTimeout)
+        if (this.index == this.length - 1) {
+            // Set timer to disable in 50ms
+            this._setForwardButtonTimeout = setTimeout(() => {
+                this.navKeysController.disableForwardButton()
+            }, 50)
+        } else {
+            // Set timer to enable in 50ms
+            this._setForwardButtonTimeout = setTimeout(() => {
+                this.navKeysController.enableForwardButton()
+            }, 50)
+        }
+
     }
 
     private emitEventAndBlockers(e: NavEvent): boolean {

@@ -16,8 +16,9 @@
     <pre id="debug-list" style="border: 2px solid #DDDDDD; min-height: 500px; overflow: auto;">
 
     </pre>
-    <button onclick="history2.enableForwardButton()">Enable forward</button>
-    <button onclick="history2.disableForwardButton()">Disable forward</button>
+    <pre id="his-stack" style="border: 2px solid #DDDDDD; min-height: 200px; overflow: auto;">
+
+    </pre>
     <!-- Polyfill for old browsers -->
     <script>
         let i = 0
@@ -41,28 +42,43 @@
         function delayed(ms, fn) {
             setTimeout(fn, ms)
         }
+
+        function drawHistory(his) {
+            var html = ''
+            for (var i = 0; i < his.length; i++) {
+                var line = i.toString()
+                if (line.length == 1) line = ' ' + line
+                var loc = his.get(i)
+
+
+                if (i == his.currentIndex) {
+                    line += ' > '
+                } else {
+                    line += '   '
+                }
+
+                line += loc.url
+                if (i <= his.currentIndex) line = '<b>' + line + '</b>'
+                line += '\n'
+                html += line
+            }
+            document.getElementById('his-stack').innerHTML = html
+        }
     </script>
 
 
     <script>
         var history2 = new HistoryPro(window.history)
+        drawHistory(history2)
 
         log(history2)
 
-        history2.listen(function (e) {
-            log(e)
-        })
+        history2.listen(e => {
+            console.log(e)
+            setTimeout(() => {
+                drawHistory(history2)
 
-        delayed(200, function () {
-            history2.url = "/a"
-        })
-
-        delayed(300, function () {
-            // history.back()
-        })
-
-        delayed(400, function () {
-
+            }, 1)
         })
     </script>
 </body>

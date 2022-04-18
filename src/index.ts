@@ -98,21 +98,39 @@ export class NavLocation {
 }
 
 export class NavEvent {
+    /* Differential of routes navigated. 
+    Ej: back() -> n: -1
+    forward(); forward() -> n: 2
+    */
     n: number
+    /* Previous or affected location */
     prevLocation: NavLocation
+    /* New added/changed to location */
     nextLocation: NavLocation
+    /* push | pop | back | forward | replace | exit | hashchange */
     action: Action
+    /* is back action. (it can be part of pop event too) */
     isBack: boolean
+    /* is forward action. (it can be part of pop or push event too) */
     isForward: boolean
+    /* Is replace action */
     isReplace: boolean
+    /* Is push action. (push adds a route, normally it includes a location change) */
     isPush: boolean
+    /* Is pop action. (pop removes a route, also it can be with it a back or forward action) */
     isPop: boolean
+    /* It happen when going back on the first location */
     isExit: boolean
+    /* Is the event a hash change? */
     isHashchange: boolean
+    /* Was the event trigger by code or brower itself? (ej: back and forward) */
     wasManuallyCalledAction: boolean
+    /* setCancelled(true) to cancel the event */
     setCancelled?: Function
+    /* Prevent triggering other event listeners */
     stopPropagation?: Function
-    setContinue?: Function
+    /* It can be used to ignore block. Ej: setContinue(true)*/
+    setContinue?: Function 
 }
 
 export default class HistoryPro {

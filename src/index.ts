@@ -62,38 +62,29 @@ export class NavLocation {
     key: string
     readonly url: URL
     constructor(url: string | URL, state?: any, key?: string) {
-        this.url = new URL(url)
+        this.url = new URL(url.toString())
         this.state = state ?? null
         this.key = key ?? createKey()
     }
 
+    get path() {
+        return this.pathname + this.search + this.hash
+    }
+
     get hash() {
-        return this.url.href
+        return this.url.hash
     }
-    get host() {
-        return this.url.host
-    }
-    get hostname() {
-        return this.url.hostname
-    }
-    get href() {
-        return this.url.href
-    }
-    get origin() {
-        return this.url.origin
-    }
+
     get pathname() {
         return this.url.pathname
     }
-    get port() {
-        return this.url.port
-    }
-    get protocol() {
-        return this.url.protocol
+
+    get search() {
+        return this.url.search
     }
 
     toString() {
-        return this.url.toString()
+        return this.path
     }
 }
 
@@ -145,15 +136,14 @@ export default class HistoryPro {
 
     constructor(options?: Options) {
         this.options = { ...DEFAULT_OPTIONS, ...options }
-        this.navKeysController = options.navKeysController ?? new NavKeysController(window.history)
+        this.navKeysController = this.options.navKeysController ?? new NavKeysController(window.history)
         this.navKeysController.listen(this.handleListen.bind(this))
         this.listeners = new Set()
         this.blockers = new Set()
         this.exitBlockersCount = 0
         this.pushReplaceAndPopBlockersCount = 0
-        console.log(this.navKeysController)
         this.list = [
-            new NavLocation(this.navKeysController.url, options.initialState, options.initialKey)
+            new NavLocation(this.navKeysController.url, this.options.initialState, this.options.initialKey)
         ]
         this.index = 0
     }
@@ -296,7 +286,7 @@ export default class HistoryPro {
     push(url: string | URL, state?: any, position?: number) {
         if (position === undefined || position === null) position = this.index + 1
         // Next new location
-        const location: NavLocation = new NavLocation(new URL(url, this.url), state, createKey())
+        const location: NavLocation = new NavLocation(new URL(url.toString(), this.location.url.href), state, createKey())
         let n = 0
         let newIndex = this.index
         if (position - 1 == this.index) {
@@ -335,7 +325,7 @@ export default class HistoryPro {
     replace(url: string | URL, state?: any, position?: number) {
         if (position === undefined || position === null) position = this.index
         // Next new location
-        const location: NavLocation = new NavLocation(new URL(url, this.url), state, createKey())
+        const location: NavLocation = new NavLocation(new URL(url.toString(), this.location.url.href), state, createKey())
 
         const e: NavEvent = {
             n: 0,
@@ -485,7 +475,7 @@ export default class HistoryPro {
     }
 
     get url() {
-        return this.location.toString()
+        return this.location.url
     }
 
     get state() {

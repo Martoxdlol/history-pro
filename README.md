@@ -175,14 +175,10 @@ class NavLocation {
     key: string;
     readonly url: URL;
     constructor(url: string | URL, state?: any, key?: string);
+    get path(): string;
     get hash(): string;
-    get host(): string;
-    get hostname(): string;
-    get href(): string;
-    get origin(): string;
     get pathname(): string;
-    get port(): string;
-    get protocol(): string;
+    get search(): string;
     toString(): string;
 }
 ```

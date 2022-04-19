@@ -1,6 +1,28 @@
-import HistoryPro, { Action, NavEvent } from ".";
+import HistoryPro, { Action, NavEvent, NavLocation } from ".";
 
-export default function createHistory(historyPro?: HistoryPro) {
+export type To = {
+    search: string
+    pathname: string
+    hash: string
+}
+
+export type ReactRouterNavigator = {
+    pro: HistoryPro
+    history: HistoryPro
+    action: string
+    location: NavLocation
+    createHref: (to: string) => string
+    push: (to: To, state?: any) => void
+    pop: Function
+    replace: (to: To, state?: any) => void
+    go: (delta: number) => void
+    back: Function
+    forward: Function
+    listen: Function
+    block: Function
+}
+
+export default function createHistory(historyPro?: HistoryPro): ReactRouterNavigator {
     let action = 'POP'
 
     if (!historyPro) historyPro = new HistoryPro({})
@@ -20,33 +42,40 @@ export default function createHistory(historyPro?: HistoryPro) {
         }
 
         listeners.forEach(listener => {
-            listener({ location, action })
+            listener({ location, action, event: e })
         })
     })
 
 
-    let history: {} = {
+    let history: ReactRouterNavigator = {
+        pro: historyPro,
+        history: historyPro,
         get action() {
             return action;
         },
         get location() {
             return location
         },
-        createHref: (u: string) => new URL(u, location.href),
-        push: historyPro.push,
-        replace: historyPro.replace,
-        go: historyPro.go,
-        back() {
+        createHref: historyPro.createHref.bind(historyPro),
+        push: (to, state) => {
+            historyPro.push(to.pathname + to.search + to.hash, state)
+        },
+        replace: (to, state) => {
+            historyPro.replace(to.pathname + to.search + to.hash, state)
+        },
+        go: historyPro.go.bind(historyPro),
+        pop: historyPro.pop.bind(historyPro),
+        back: () => {
             historyPro.go(-1);
         },
-        forward() {
+        forward: () => {
             historyPro.go(1);
         },
-        listen(listener: Function) {
+        listen: (listener: Function) => {
             listeners.add(listener)
             return () => listeners.delete(listener)
         },
-        block(blocker: Function, options?: any) {
+        block: (blocker: Function, options?: any) => {
             historyPro.block(() => {
                 blocker()
             }, options)

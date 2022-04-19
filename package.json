@@ -1,6 +1,6 @@
 {
   "name": "history-pro",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Advanced version of browser history api. Compatible with react-router.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -22,6 +22,15 @@ export type ReactRouterNavigator = {
     block: Function
 }
 
+
+function createPath({ pathname = "/", search = "", hash = "", }) {
+    if (search && search !== "?")
+        pathname += search.charAt(0) === "?" ? search : "?" + search;
+    if (hash && hash !== "#")
+        pathname += hash.charAt(0) === "#" ? hash : "#" + hash;
+    return pathname;
+}
+
 export default function createHistory(historyPro?: HistoryPro): ReactRouterNavigator {
     let action = 'POP'
 
@@ -41,6 +50,11 @@ export default function createHistory(historyPro?: HistoryPro): ReactRouterNavig
             action = 'POP'
         }
 
+        if (e.isExit) {
+            console.log("EXIT", e)
+            return
+        }
+
         listeners.forEach(listener => {
             listener({ location, action, event: e })
         })
@@ -56,7 +70,9 @@ export default function createHistory(historyPro?: HistoryPro): ReactRouterNavig
         get location() {
             return location
         },
-        createHref: historyPro.createHref.bind(historyPro),
+        createHref(to: string | {}) {
+            return typeof to === "string" ? to : createPath(to);
+        },
         push: (to, state) => {
             historyPro.push(to.pathname + to.search + to.hash, state)
         },
@@ -79,26 +95,8 @@ export default function createHistory(historyPro?: HistoryPro): ReactRouterNavig
             historyPro.block(() => {
                 blocker()
             }, options)
-
-            // if (blockers.length === 1) {
-            //     window.addEventListener(BeforeUnloadEventType, promptBeforeUnload);
-            // }
-
-            // return function () {
-            //     unblock();
-
-            //     // Remove the beforeunload listener so the document may
-            //     // still be salvageable in the pagehide event.
-            //     // See https://html.spec.whatwg.org/#unloading-documents
-            //     if (!blockers.length) {
-            //         window.removeEventListener(BeforeUnloadEventType, promptBeforeUnload);
-            //     }
-            // };
         },
     }
     return history
 }
 
-export function makeNativeHistoryPro(historyPro?: HistoryPro) {
-
-}

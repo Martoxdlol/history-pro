@@ -316,7 +316,7 @@ export default class HistoryPro {
         if (!shouldDoAction) return
 
         this.index = newIndex
-        this.list = [...this.list.slice(0, position), location, ...this.list.slice(position)]
+        this.list = [...this.list.slice(0, position), location]
         this.setForwardButtonAndUrl()
     }
 
@@ -437,6 +437,7 @@ export default class HistoryPro {
                 }
                 if (this.exitBlockersCount == 1) {
                     // REMOVE NATIVE TAB CLOSE BLOCKER
+                    removeBeforeUnload()
                 }
             }
         }
@@ -449,6 +450,7 @@ export default class HistoryPro {
         }
         if (this.exitBlockersCount == 1) {
             // ADD NATIVE TAB CLOSE BLOCKER
+            setBeforeUnload()
         }
 
         this.blockers.add(b)
@@ -482,6 +484,10 @@ export default class HistoryPro {
         return this.location.state
     }
 
+    set state(state) {
+        this.location.state = state
+    }
+
     /* Get a navigation item at list position*/
     get(position: number): NavLocation {
         return this.list[position] || null
@@ -489,10 +495,6 @@ export default class HistoryPro {
 
     indexOf(navLocation: NavLocation) {
         return this.list.indexOf(navLocation)
-    }
-
-    createHref(to: string | {}) {
-        return typeof to === "string" ? to : createPath(to);
     }
 
     private _setForwardButtonTimeout: NodeJS.Timeout = null
@@ -555,7 +557,12 @@ export default class HistoryPro {
             /* use: setContinue(true) to bypass block */
             e.setContinue = (c: boolean) => _continue = c
 
-            blocker.blocker(e, blocker.cancel)
+            try {
+                blocker.blocker(e, blocker.cancel)
+            } catch (error) {
+                console.error("Error on blocker callback")
+                console.error(error)
+            }
 
             blocked = true
             break
@@ -577,7 +584,14 @@ export default class HistoryPro {
         if (this.options.callEventListenersFromLastToFirst) list.reverse()
 
         for (const listener of list) {
-            listener.listener(e)
+
+            try {
+                listener.listener(e)
+            } catch (error) {
+                console.error("Error on listener callback")
+                console.error(error)
+            }
+
             if (stoppedPropagation) break
         }
 
@@ -585,12 +599,16 @@ export default class HistoryPro {
     }
 }
 
-function createPath({ pathname = "/", search = "", hash = "", }) {
-    if (search && search !== "?")
-        pathname += search.charAt(0) === "?" ? search : "?" + search;
-    if (hash && hash !== "#")
-        pathname += hash.charAt(0) === "#" ? hash : "#" + hash;
-    return pathname;
+const beforeUnloadCallback = (event: BeforeUnloadEvent) => {
+    event.returnValue = `Are you sure you want to leave?`;
+}
+
+function setBeforeUnload() {
+    window.addEventListener('beforeunload', beforeUnloadCallback)
+}
+
+function removeBeforeUnload() {
+    window.removeEventListener('beforeunload', beforeUnloadCallback)
 }
 
 function createKey() {

@@ -32,6 +32,6 @@
     "webpack-dev-server": "^4.8.1"
   },
   "dependencies": {
-    "nav-keys": "^1.2.3"
+    "nav-keys": "^1.2.6"
   }
 }
